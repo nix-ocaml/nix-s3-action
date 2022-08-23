@@ -22,10 +22,14 @@ async function setup() {
     // for managed signing key and private caches
     if (awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
       const aws_credentials = `[default]
-      aws_access_key_id = ${awsAccessKeyId}
-      aws_secret_access_key = ${awsSecretAccessKey}`;
+aws_access_key_id = ${awsAccessKeyId}
+aws_secret_access_key = ${awsSecretAccessKey}`;
 
-      fs.writeFileSync(path.resolve(os.homedir(), "/.aws/credentials"), aws_credentials);
+      const aws_path = path.join(os.homedir(), ".aws");
+      const aws_credentials_path = path.join(aws_path, "credentials");
+
+      fs.mkdirSync(aws_path, { recursive: true });
+      fs.writeFileSync(aws_credentials_path, aws_credentials);
     }
 
     if (signingKey !== "") {
