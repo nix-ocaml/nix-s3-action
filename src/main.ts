@@ -4,6 +4,7 @@ import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { URL } from "url";
 
 export const IsPost = !!process.env['STATE_isPost']
 
@@ -16,6 +17,9 @@ const skipPush = core.getInput('skipPush');
 const pathsToPush = core.getInput('pathsToPush');
 const pushFilter = core.getInput('pushFilter');
 const nixArgs = core.getInput('nixArgs');
+
+const nix_path = path.join(os.homedir(), ".nix");
+const key_path = path.join(nix_path, "nix-cache-key.sec");
 
 async function setup() {
   try {
@@ -33,7 +37,8 @@ aws_secret_access_key = ${awsSecretAccessKey}`;
     }
 
     if (signingKey !== "") {
-      fs.writeFileSync("/etc/nix/nix-cache-key.sec", signingKey);
+      fs.mkdirSync(nix_path)
+      fs.writeFileSync(key_path, signingKey);
     }
     // Remember existing store paths
     await exec.exec("sh", ["-c", `${__dirname}/list-nix-store.sh > /tmp/store-path-pre-build`]);
@@ -48,7 +53,15 @@ async function upload() {
     if (skipPush === 'true') {
       core.info('Pushing is disabled as skipPush is set to true');
     } else if (signingKey !== "" && awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
-      await exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, endpoint, pathsToPush, pushFilter]);
+      const cache_url = new URL(endpoint);
+      cache_url.searchParams.append("compression", "zstd");
+      cache_url.searchParams.append("parallel-compression", "true");
+      cache_url.searchParams.append("secret-key",  key_path);
+
+      const cache_target = decodeURIComponent(cache_url.toString());
+      console.log(cache_target);
+
+      await exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
     } else {
       core.info('Pushing is disabled as signingKey, awsAccessKeyId or awsSecretAccessKey is not set (or are empty?) in your YAML file.');
     }

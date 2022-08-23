@@ -11,4 +11,4 @@ if [[ $pathsToPush == "" ]]; then
     fi
 fi
 
-echo "$pathsToPush" | nix copy --verbose $nixArgs --to "$endpoint&compression=zstd&parallel-compression=true&secret-key=/etc/nix/nix-cache-key.sec"
+echo "$pathsToPush" | nix copy --verbose $nixArgs --to "$endpoint"
