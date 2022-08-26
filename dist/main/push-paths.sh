@@ -11,4 +11,4 @@ if [[ $pathsToPush == "" ]]; then
     fi
 fi
 
-echo "$pathsToPush" | nix copy --verbose $nixArgs --to "$endpoint"
+nix copy --verbose $nixArgs --to "$endpoint" $pathsToPush
