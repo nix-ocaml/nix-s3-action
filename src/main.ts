@@ -1,5 +1,4 @@
 import * as core from '@actions/core';
-import * as coreCommand from '@actions/core/lib/command'
 import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -75,7 +74,7 @@ async function upload() {
 if (!IsPost) {
   // Publish a variable so that when the POST action runs, it can determine it should run the cleanup logic.
   // This is necessary since we don't have a separate entry point.
-  coreCommand.issueCommand('save-state', {name: 'isPost'}, 'true')
+  core.saveState('isPost', 'true');
   setup()
 } else {
   // Post
