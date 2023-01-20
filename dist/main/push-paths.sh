@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -xeuo pipefail
 
 endpoint=$1 nixArgs=$2 pathsToPush=$3 pushFilter=$4
 
