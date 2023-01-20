@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
- endpoint=$1 nixArgs=$1 pathsToPush=$3 pushFilter=$4
+endpoint=$1 nixArgs=$2 pathsToPush=$3 pushFilter=$4
 
 if [[ $endpoint == "" ]]; then
     echo "No endpoint set, exiting"
@@ -15,5 +15,7 @@ if [[ $pathsToPush == "" ]]; then
         pathsToPush=$(echo "$pathsToPush" | grep -vEe "$pushFilter")
     fi
 fi
+
+echo "nix copy --verbose --to \"$endpoint\" $nixArgs"
 
 echo "$pathsToPush" | nix copy --verbose --to "$endpoint" $nixArgs
