@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-endpoint=$1 nixArgs=$2 pathsToPush=$3 pushFilter=$4
+ endpoint=$1 nixArgs=$1 pathsToPush=$3 pushFilter=$4
 
 if [[ $endpoint == "" ]]; then
     echo "No endpoint set, exiting"
