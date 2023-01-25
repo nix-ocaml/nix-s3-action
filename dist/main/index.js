@@ -4026,12 +4026,7 @@ aws_secret_access_key = ${awsSecretAccessKey}`;
                 fs.writeFileSync(aws_credentials_path, aws_credentials);
             }
             if (signingKey !== "") {
-                try {
-                    fs.mkdirSync(nix_path);
-                }
-                catch (_error) {
-                    console.warn(`${nix_path} already exists`);
-                }
+                fs.mkdirSync(nix_path);
                 fs.writeFileSync(key_path, signingKey);
             }
             // Remember existing store paths
@@ -4056,7 +4051,7 @@ function upload() {
                 cache_url.searchParams.append("secret-key", key_path);
                 const cache_target = decodeURIComponent(cache_url.toString());
                 console.log(cache_target);
-                yield exec.getExecOutput(`${__dirname}/push-paths.sh`, [cache_target, nixArgs, pathsToPush, pushFilter]);
+                yield exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
             }
             else {
                 core.info('Pushing is disabled as signingKey, awsAccessKeyId or awsSecretAccessKey is not set (or are empty?) in your YAML file.');
