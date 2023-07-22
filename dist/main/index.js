@@ -4001,66 +4001,83 @@ const path = __importStar(__nccwpck_require__(17));
 const os = __importStar(__nccwpck_require__(37));
 const url_1 = __nccwpck_require__(310);
 exports.IsPost = !!process.env['STATE_isPost'];
-// inputs
-const endpoint = core.getInput('endpoint', { required: true });
-const signingKey = core.getInput('signingKey', { required: true });
-const awsAccessKeyId = core.getInput('awsAccessKeyId');
-const awsSecretAccessKey = core.getInput('awsSecretAccessKey');
-const skipPush = core.getInput('skipPush');
-const pathsToPush = core.getInput('pathsToPush');
-const pushFilter = core.getInput('pushFilter');
-const nixArgs = core.getInput('nixArgs');
+function getInputs() {
+    try {
+        return {
+            endpoint: core.getInput('endpoint', { required: true }),
+            signingKey: core.getInput('signingKey', { required: true }),
+            awsAccessKeyId: core.getInput('awsAccessKeyId'),
+            awsSecretAccessKey: core.getInput('awsSecretAccessKey'),
+            skipPush: core.getInput('skipPush'),
+            pathsToPush: core.getInput('pathsToPush'),
+            pushFilter: core.getInput('pushFilter'),
+            nixArgs: core.getInput('nixArgs'),
+        };
+    }
+    catch (e) {
+        core.notice(`Error getting input, skipping cache setup / push: ${e instanceof Error ? e.toString() : null}`);
+        return null;
+    }
+}
 const nix_path = path.join(os.homedir(), ".nix");
 const key_path = path.join(nix_path, "nix-cache-key.sec");
 function setup() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // for managed signing key and private caches
-            if (awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
-                const aws_credentials = `[default]
+        const inputs = getInputs();
+        if (inputs != null) {
+            try {
+                const { signingKey, awsAccessKeyId, awsSecretAccessKey, skipPush, } = inputs;
+                // for managed signing key and private caches
+                if (awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
+                    const aws_credentials = `[default]
 aws_access_key_id = ${awsAccessKeyId}
 aws_secret_access_key = ${awsSecretAccessKey}`;
-                const aws_path = path.join(os.homedir(), ".aws");
-                const aws_credentials_path = path.join(aws_path, "credentials");
-                fs.mkdirSync(aws_path, { recursive: true });
-                fs.writeFileSync(aws_credentials_path, aws_credentials);
+                    const aws_path = path.join(os.homedir(), ".aws");
+                    const aws_credentials_path = path.join(aws_path, "credentials");
+                    fs.mkdirSync(aws_path, { recursive: true });
+                    fs.writeFileSync(aws_credentials_path, aws_credentials);
+                }
+                if (signingKey !== "") {
+                    fs.mkdirSync(nix_path);
+                    fs.writeFileSync(key_path, signingKey);
+                }
+                // Remember existing store paths
+                yield exec.exec("sh", ["-c", `${__dirname}/list-nix-store.sh > /tmp/store-path-pre-build`]);
             }
-            if (signingKey !== "") {
-                fs.mkdirSync(nix_path);
-                fs.writeFileSync(key_path, signingKey);
+            catch (error) {
+                core.setFailed(`Action failed with error: ${error}`);
             }
-            // Remember existing store paths
-            yield exec.exec("sh", ["-c", `${__dirname}/list-nix-store.sh > /tmp/store-path-pre-build`]);
-        }
-        catch (error) {
-            core.setFailed(`Action failed with error: ${error}`);
         }
     });
 }
 function upload() {
     return __awaiter(this, void 0, void 0, function* () {
-        core.startGroup('S3 cache: push');
-        try {
-            if (skipPush === 'true') {
-                core.info('Pushing is disabled as skipPush is set to true');
+        const inputs = getInputs();
+        if (inputs != null) {
+            core.startGroup('S3 cache: push');
+            const { endpoint, signingKey, awsAccessKeyId, awsSecretAccessKey, skipPush, pathsToPush, pushFilter, nixArgs } = inputs;
+            try {
+                if (skipPush === 'true') {
+                    core.info('Pushing is disabled as skipPush is set to true');
+                }
+                else if (signingKey !== "" && awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
+                    const cache_url = new url_1.URL(endpoint);
+                    cache_url.searchParams.append("compression", "zstd");
+                    cache_url.searchParams.append("parallel-compression", "true");
+                    cache_url.searchParams.append("secret-key", key_path);
+                    const cache_target = decodeURIComponent(cache_url.toString());
+                    console.log(cache_target);
+                    yield exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
+                }
+                else {
+                    core.info('Pushing is disabled as signingKey, awsAccessKeyId or awsSecretAccessKey is not set (or are empty?) in your YAML file.');
+                }
             }
-            else if (signingKey !== "" && awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
-                const cache_url = new url_1.URL(endpoint);
-                cache_url.searchParams.append("compression", "zstd");
-                cache_url.searchParams.append("parallel-compression", "true");
-                cache_url.searchParams.append("secret-key", key_path);
-                const cache_target = decodeURIComponent(cache_url.toString());
-                console.log(cache_target);
-                yield exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
+            catch (error) {
+                core.setFailed(`Action failed with error: ${error}`);
             }
-            else {
-                core.info('Pushing is disabled as signingKey, awsAccessKeyId or awsSecretAccessKey is not set (or are empty?) in your YAML file.');
-            }
+            core.endGroup();
         }
-        catch (error) {
-            core.setFailed(`Action failed with error: ${error}`);
-        }
-        core.endGroup();
     });
 }
 // Main
