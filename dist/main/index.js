@@ -4026,7 +4026,7 @@ function setup() {
         const inputs = getInputs();
         if (inputs != null) {
             try {
-                const { signingKey, awsAccessKeyId, awsSecretAccessKey, skipPush, } = inputs;
+                const { signingKey, awsAccessKeyId, awsSecretAccessKey, } = inputs;
                 // for managed signing key and private caches
                 if (awsAccessKeyId !== "" && awsSecretAccessKey !== "") {
                     const aws_credentials = `[default]
@@ -4036,6 +4036,10 @@ aws_secret_access_key = ${awsSecretAccessKey}`;
                     const aws_credentials_path = path.join(aws_path, "credentials");
                     fs.mkdirSync(aws_path, { recursive: true });
                     fs.writeFileSync(aws_credentials_path, aws_credentials);
+                    const aws_config_path = `[default]
+          region = auto`;
+                    const aws_config = path.join(aws_path, "config");
+                    fs.writeFileSync(aws_config_path, aws_config);
                 }
                 if (signingKey !== "") {
                     fs.mkdirSync(nix_path);

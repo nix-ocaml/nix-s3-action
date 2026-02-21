@@ -19,7 +19,7 @@ function getInputs() {
       pushFilter: core.getInput('pushFilter'),
       nixArgs: core.getInput('nixArgs'),
     }
-  } catch(e: unknown) {
+  } catch (e: unknown) {
     core.notice(`Error getting input, skipping cache setup / push: ${e instanceof Error ? e.toString() : null}`);
     return null;
   }
@@ -37,7 +37,6 @@ async function setup() {
         signingKey,
         awsAccessKeyId,
         awsSecretAccessKey,
-        skipPush,
       } = inputs;
 
       // for managed signing key and private caches
@@ -51,6 +50,12 @@ aws_secret_access_key = ${awsSecretAccessKey}`;
 
         fs.mkdirSync(aws_path, { recursive: true });
         fs.writeFileSync(aws_credentials_path, aws_credentials);
+
+        const aws_config_path = `[default]
+          region = auto`;
+
+        const aws_config = path.join(aws_path, "config");
+        fs.writeFileSync(aws_config_path, aws_config);
       }
 
       if (signingKey !== "") {
@@ -88,7 +93,7 @@ async function upload() {
         const cache_url = new URL(endpoint);
         cache_url.searchParams.append("compression", "zstd");
         cache_url.searchParams.append("parallel-compression", "true");
-        cache_url.searchParams.append("secret-key",  key_path);
+        cache_url.searchParams.append("secret-key", key_path);
 
         const cache_target = decodeURIComponent(cache_url.toString());
         console.log(cache_target);
