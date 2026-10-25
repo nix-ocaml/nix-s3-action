@@ -1,52 +1,52 @@
-# cachix-action
+# nix-s3-action
 
-![github actions badge](https://github.com/cachix/cachix-action/workflows/cachix-action%20test/badge.svg)
+Configure credentials for a Nix binary cache on S3 or an S3-compatible service,
+then upload build results at the end of the job.
 
-One nice benefit of Nix is that CI can build and cache developer environments for every project on every branch using binary caches.
-
-Another important aspect of CI is the feedback loop of how many minutes does the build take to finish.
-
-With a simple configuration using Cachix, you’ll never have to build any derivation twice and share them with all your developers.
-
-After each job, just built derivations are pushed to your binary cache.
-
-Before each job, derivations to be built are first substituted (if they exist) from your binary cache.
+The action runs on Node.js 24 and supports Linux and macOS runners with Nix
+installed. Self-hosted runners must support the Node.js 24 action runtime.
 
 ## Getting started
 
-Follow [Continuous Integration with GitHub Actions](https://nix.dev/tutorials/nixos/continuous-integration-github-actions) tutorial.
-
-See [action.yml](action.yml) for all options.
-
-## Security
-
-Cachix auth token and signing key need special care as they give read and write access to your caches.
-
-[As per GitHub Actions' security model](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets#using-encrypted-secrets-in-a-workflow):
-
-> Anyone with write access to a repository can create, read, and use secrets.
-
-Which means all developers with write/push access can read your secrets and write to your cache. 
-
-Pull requests do not have access to secrets so read access to a public binary cache will work,
-but pushing will be disabled since there is no signing key.
-
-Note that malicious code submitted via a pull request can, once merged into `master`, reveal the tokens. 
-
-
-## Hacking
-
-Install the dependencies  
-```bash
-$ yarn install
+```yaml
+- uses: cachix/install-nix-action@v31
+- uses: nix-ocaml/nix-s3-action@fork
+  with:
+    endpoint: s3://my-cache
+    signingKey: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
+    awsAccessKeyId: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    awsSecretAccessKey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+- run: nix build
 ```
 
-Build the typescript
-```bash
-$ yarn build
+For S3-compatible services, include the service URL in the endpoint query string,
+for example `s3://my-cache?endpoint=https://example.com`.
+
+Set `skipPush: true` to configure credentials while leaving uploads to another
+step. Use `pathsToPush` to upload specific store paths instead of every new build
+result. See [action.yml](action.yml) for all inputs.
+
+If signing credentials are unavailable, such as on pull requests from forks,
+cache setup and upload are skipped. Keep signing keys and AWS credentials in
+GitHub Actions secrets.
+
+## Development
+
+Enter the pinned Node.js 24 development environment:
+
+```sh
+nix develop
 ```
 
-Run the tests :heavy_check_mark:  
-```bash
-$ yarn test
+Install dependencies, rebuild the shipped bundle, and run the tests:
+
+```sh
+yarn install --frozen-lockfile
+yarn build
+yarn test
 ```
+
+Commit changes to `dist/main/index.js` alongside changes to the source or
+runtime dependencies. CI checks that the bundle is current and exercises the
+main and post-job action phases on Linux and macOS. Tests use dummy credentials
+and mocked uploads.

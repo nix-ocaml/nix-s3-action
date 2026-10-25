@@ -1,101 +1,48 @@
-name: "cachix-action test"
+name: nix-s3-action test
 on:
   pull_request:
   push:
     branches:
-      - master
+      - fork
+
+permissions:
+  contents: read
 
 jobs:
-  public-cache:
+  test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
-    - run: yarn install --frozen-lockfile
-    - run: yarn build
-    # check if typescript generation was committed
-    - run: git diff --exit-code
-    - uses: cachix/install-nix-action@v22
-    - name: Test public cache
-      uses: ./
-      with:
-        name: cachix-action
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build test.nix
-
-  public-cache-no-signing-key:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v3
-    - run: yarn install --frozen-lockfile
-    - run: yarn build
-    - uses: cachix/install-nix-action@v22
-    - name: Test public cache no signing key
-      uses: ./
-      with:
-        name: cachix-action
-    - run: nix-build test.nix
-
-  private-cache:
-    if: ${{ github.ref == 'refs/heads/master' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v3
-    - run: yarn install --frozen-lockfile
-    - run: yarn build
-    - uses: cachix/install-nix-action@v22
-    - name: Test private cache
-      uses: ./
-      with:
-        name: cachix-action-private
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY_PRIVATE }}'
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix-build test.nix
-
-  installCommand:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v3
-    - run: yarn install --frozen-lockfile
-    - run: yarn build
-    - uses: cachix/install-nix-action@v22
-    - name: Test private cache
-      uses: ./
-      with:
-        name: cachix-action
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-        installCommand: 'nix-env -j8 -f https://cachix.org/api/v1/install -iA cachix'
-    - run: nix-build test.nix
-
-  nix-master:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install Nix
-      uses: cachix/install-nix-action@v22
-      with:
-        nix_path: nixpkgs=channel:nixos-22.11
-        install_url: https://nixos-nix-install-tests.cachix.org/serve/kkq45x7yrzvxq8627fi6hkswnfa7mg2l/install
-        install_options: '--tarball-url-prefix https://nixos-nix-install-tests.cachix.org/serve'
-    - run: yarn install --frozen-lockfile
-    - run: yarn build
-    - name: Test public cache
-      uses: ./
-      with:
-        name: cachix-action
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build test.nix
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - name: Install dependencies
+        run: nix develop --command yarn install --frozen-lockfile
+      - name: Build action
+        run: nix develop --command yarn build
+      - name: Test bundled action on Node.js 24
+        run: nix develop --command yarn test
+      - name: Check committed bundle
+        run: git diff --exit-code -- dist yarn.lock
+      - name: Test missing credentials
+        uses: ./
+        with:
+          endpoint: s3://nix-s3-action-test
+          signingKey: ''
+          awsAccessKeyId: ''
+          awsSecretAccessKey: ''
+      - name: Test cache setup without uploading
+        uses: ./
+        with:
+          endpoint: s3://nix-s3-action-test
+          signingKey: test-signing-key
+          awsAccessKeyId: test-access-key
+          awsSecretAccessKey: test-secret-key
+          skipPush: 'true'
+      - name: Check cache setup
+        run: |
+          test -s "$HOME/.nix/nix-cache-key.sec"
+          test -s "$HOME/.aws/credentials"
+          test -s /tmp/store-path-pre-build
