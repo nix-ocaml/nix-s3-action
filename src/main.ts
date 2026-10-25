@@ -1,9 +1,9 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { URL } from "url";
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { URL } from "node:url";
 
 export const IsPost = !!process.env['STATE_isPost']
 
@@ -63,7 +63,7 @@ region = auto`;
         fs.writeFileSync(key_path, signingKey);
       }
       // Remember existing store paths
-      await exec.exec("sh", ["-c", `${__dirname}/list-nix-store.sh > /tmp/store-path-pre-build`]);
+      await exec.exec("sh", ["-c", `${import.meta.dirname}/list-nix-store.sh > /tmp/store-path-pre-build`]);
     } catch (error) {
       core.setFailed(`Action failed with error: ${error}`);
     }
@@ -98,7 +98,7 @@ async function upload() {
         const cache_target = decodeURIComponent(cache_url.toString());
         console.log(cache_target);
 
-        await exec.exec(`${__dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
+        await exec.exec(`${import.meta.dirname}/push-paths.sh`, [nixArgs, cache_target, pathsToPush, pushFilter]);
       } else {
         core.info('Pushing is disabled as signingKey, awsAccessKeyId or awsSecretAccessKey is not set (or are empty?) in your YAML file.');
       }
@@ -113,9 +113,9 @@ async function upload() {
 if (!IsPost) {
   // Publish a variable so that when the POST action runs, it can determine it should run the cleanup logic.
   // This is necessary since we don't have a separate entry point.
-  core.saveState('isPost', 'true');
-  setup()
+  await core.saveState('isPost', 'true');
+  await setup()
 } else {
   // Post
-  upload()
+  await upload()
 }
